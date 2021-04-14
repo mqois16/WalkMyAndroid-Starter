@@ -28,21 +28,25 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements FetchAddressTask.OnTaskCompleted {
     private Button mLocationButton;
     private TextView mLocationText;
-    private static final int REQUEST_LOCATION_PERMISSION=1;
+    private static final int REQUEST_LOCATION_PERMISSION = 1;
     FusedLocationProviderClient fusedLocationProviderClient;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mLocationText=findViewById(R.id.textview_location);
-        mLocationButton=findViewById(R.id.button_location);
-        fusedLocationProviderClient= LocationServices.getFusedLocationProviderClient(this);
+        mLocationText = findViewById(R.id.textview_location);
+        mLocationButton = findViewById(R.id.button_location);
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         mLocationButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -51,36 +55,62 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void getLocation(){
-        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)!= PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this,new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION
-            },REQUEST_LOCATION_PERMISSION);
-        }else{
-            fusedLocationProviderClient.getLastLocation().addOnSuccessListener(new OnSuccessListener<Location>() {
-                @Override
-                public void onSuccess(Location location) {
-                    if(location!=null){
-                        mLocationText.setText(getString(R.string.location_text,location.getLatitude(),location.getLongitude()));
-                    }else{
-                        mLocationText.setText(R.string.no_location);
-                    }
-                }
-            })
+    private void getLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION
+            }, REQUEST_LOCATION_PERMISSION);
+        } else {
+//            fusedLocationProviderClient.getLastLocation().addOnSuccessListener(new OnSuccessListener<Location>() {
+//                @Override
+//                public void onSuccess(Location location) {
+//                    if(location!=null){
+//                        new FetchAddressTask(MainActivity.this,MainActivity.this).execute(location);
+//                    }else{
+//                        mLocationText.setText(R.string.no_location);
+//                    }
+//                }
+//            });
+            fusedLocationProviderClient.requestLocationUpdates(getLocationRequest(),
+                    new LocationCallback() {
+                        @Override
+                        public void onLocationResult(LocationResult locationResult) {
+                            Location location = locationResult.getLastLocation();
+                            if (location != null) {
+                                new FetchAddressTask(MainActivity.this, MainActivity.this).execute(location);
+                            }
+
+
+                        }
+                    }, null);
         }
+    }
+
+    private LocationRequest getLocationRequest() {
+        LocationRequest locationRequest = new LocationRequest();
+        locationRequest.setInterval(5000);
+        locationRequest.setFastestInterval(5000);
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+        return locationRequest;
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode){
+        switch (requestCode) {
             case REQUEST_LOCATION_PERMISSION:
-                if (grantResults.length>0&&grantResults[0]==PackageManager.PERMISSION_GRANTED){
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     getLocation();
-                }else{
-                    Toast.makeText(this,"Permission Denied!",Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "Permission Denied!", Toast.LENGTH_SHORT).show();
                 }
                 break;
         }
+    }
+
+    @Override
+    public void onTaskCompleted(String result) {
+        mLocationText.setText(result);
     }
 }
